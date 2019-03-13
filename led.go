@@ -44,7 +44,13 @@ func setPinValue(pin_number int, value int) error {
     return nil
 }
 
-func main() {
+func ledDisco() {
+    for {
+        err := setPinValue(21, 1)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
         value, err := readPinValue(21)
         if err != nil {
             fmt.Println(err)
@@ -52,29 +58,12 @@ func main() {
         }
         fmt.Println("Wartość: ", value)
         time.Sleep(time.Millisecond * 1000)
-        err = setPinValue(21, 1)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        value, err = readPinValue(21)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        fmt.Println("Wartość: ", value)
-        time.Sleep(time.Millisecond * 1000)
-        err = setPinValue(21, 0)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        value, err = readPinValue(21)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        fmt.Println("Wartość: ", value)
+
+    }
+}
+
+func main() {
+    ledDisco()
 }
 
 
