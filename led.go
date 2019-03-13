@@ -5,13 +5,13 @@ import (
     "os"
     "strconv"
     "errors"
+    "time"
 )
 
 var VALUE_PATH string = "/sys/class/gpio/gpio%d/value"
 
 func readPinValue(pin_number int) (int64, error) {
     pin_value_path := fmt.Sprintf(VALUE_PATH, pin_number)
-    fmt.Println("reading ", pin_value_path)
     f, err := os.OpenFile(pin_value_path, os.O_RDONLY, 0755)
     if err != nil {
         return 0, errors.New("Cannot access value file.")
@@ -29,8 +29,47 @@ func readPinValue(pin_number int) (int64, error) {
     return led_state, nil
 }
 
+func setPinValue(pin_number int, value int) error {
+    pin_value_path := fmt.Sprintf(VALUE_PATH, pin_number)
+    f, err := os.OpenFile(pin_value_path, os.O_WRONLY, 0755)
+    if err != nil {
+        return errors.New("Cannot access value file.")
+    }
+    defer f.Close()
+    file_content := []byte(fmt.Sprintf("%d", value))
+    _, err = f.Write(file_content)
+    if err != nil {
+        return errors.New("Error writing value.")
+    }
+    return nil
+}
+
 func main() {
         value, err := readPinValue(21)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        fmt.Println("Wartość: ", value)
+        time.Sleep(time.Millisecond * 1000)
+        err = setPinValue(21, 1)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        value, err = readPinValue(21)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        fmt.Println("Wartość: ", value)
+        time.Sleep(time.Millisecond * 1000)
+        err = setPinValue(21, 0)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        value, err = readPinValue(21)
         if err != nil {
             fmt.Println(err)
             return
