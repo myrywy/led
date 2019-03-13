@@ -45,8 +45,16 @@ func setPinValue(pin_number int, value int) error {
 }
 
 func ledDisco() {
+    state := false
+    value := 0
     for {
-        err := setPinValue(21, 1)
+        state = !state
+        if state {
+            value = 1
+        }else{
+            value = 0 
+        }
+        err := setPinValue(21, value)
         if err != nil {
             fmt.Println(err)
             return
