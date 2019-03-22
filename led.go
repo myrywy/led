@@ -65,7 +65,7 @@ func ledDisco() {
             return
         }
         fmt.Println("Wartość: ", value)
-        time.Sleep(time.Millisecond * 1000)
+        time.Sleep(time.Millisecond * 2000)
 
     }
 }
