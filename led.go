@@ -45,15 +45,19 @@ func setPinValue(pin_number int, value int) error {
 }
 
 func emitBits(pin_number int, bits chan bool, period int) {
-    for bit, err := bits {
-        go setPinValue(pin_number, bit?1:0)
-        time.Sleep(time.Millisecond * period)
+    for bit := range bits {
+        if bit {
+            go setPinValue(pin_number, 1)
+        }else{
+            go setPinValue(pin_number, 0)
+        }
+        time.Sleep(time.Millisecond * time.Duration(period))
     }
 }
 
-func clockSignal(pin_number int) {
+func clockSignal(pin_number int) chan bool {
     bit_stream := make(chan bool, 32)
-    go () {
+    go func () {
         for {
             bit_stream <- true
             bit_stream <- false
