@@ -44,6 +44,29 @@ func setPinValue(pin_number int, value int) error {
     return nil
 }
 
+func emitBits(pin_number int, bits chan bool, period int) {
+    for bit, err := bits {
+        go setPinValue(pin_number, bit?1:0)
+        time.Sleep(time.Millisecond * period)
+    }
+}
+
+func clockSignal(pin_number int) {
+    bit_stream := make(chan bool, 32)
+    go () {
+        for {
+            bit_stream <- true
+            bit_stream <- false
+        } 
+    } ()
+    return bit_stream
+}
+
+func emitClockSignal(pin_number int, period int) {
+    bit_stream := clockSignal(pin_number)
+    emitBits(pin_number, bit_stream, period)
+}
+
 func ledDisco() {
     state := false
     value := 0
@@ -71,7 +94,7 @@ func ledDisco() {
 }
 
 func main() {
-    ledDisco()
+    emitClockSignal(21, 2000)
 }
 
 
