@@ -8,9 +8,17 @@ import (
     "time"
 )
 
+
+type BinaryIo interface {
+    readPinValue() (int64, error) 
+    setPinValue(value int) error 
+}
+
+type Pin int
+
 var VALUE_PATH string = "/sys/class/gpio/gpio%d/value"
 
-func readPinValue(pin_number int) (int64, error) {
+func (pin_number Pin) readPinValue() (int64, error) {
     pin_value_path := fmt.Sprintf(VALUE_PATH, pin_number)
     f, err := os.OpenFile(pin_value_path, os.O_RDONLY, 0755)
     if err != nil {
@@ -29,7 +37,7 @@ func readPinValue(pin_number int) (int64, error) {
     return led_state, nil
 }
 
-func setPinValue(pin_number int, value int) error {
+func (pin_number Pin) setPinValue(value int) error {
     pin_value_path := fmt.Sprintf(VALUE_PATH, pin_number)
     f, err := os.OpenFile(pin_value_path, os.O_WRONLY, 0755)
     if err != nil {
@@ -44,18 +52,19 @@ func setPinValue(pin_number int, value int) error {
     return nil
 }
 
-func emitBits(pin_number int, bits chan bool, period int) {
+func emitBits(pin Pin, bits chan bool, period int) {
+    tick := time.Tick(time.Duration(period) * time.Millisecond)
     for bit := range bits {
+        <- tick
         if bit {
-            go setPinValue(pin_number, 1)
+            go pin.setPinValue(1)
         }else{
-            go setPinValue(pin_number, 0)
+            go pin.setPinValue(0)
         }
-        time.Sleep(time.Millisecond * time.Duration(period))
     }
 }
 
-func clockSignal(pin_number int) chan bool {
+func clockSignal() chan bool {
     bit_stream := make(chan bool, 32)
     go func () {
         for {
@@ -66,39 +75,81 @@ func clockSignal(pin_number int) chan bool {
     return bit_stream
 }
 
-func emitClockSignal(pin_number int, period int) {
-    bit_stream := clockSignal(pin_number)
-    emitBits(pin_number, bit_stream, period)
+func emitClockSignal(pin Pin, period int) {
+    bit_stream := clockSignal()
+    emitBits(pin, bit_stream, period)
 }
 
-func ledDisco() {
-    state := false
-    value := 0
+func watchPin(pin Pin, period int, minimal_stability int, action func(bool, bool)) {
+    stable_state := false
+    state_unknown := true
+    deviated_from_stable_counter := 0
+    tick := time.Tick(time.Duration(period) * time.Millisecond)
     for {
-        state = !state
-        if state {
-            value = 1
-        }else{
-            value = 0 
-        }
-        err := setPinValue(21, value)
+        <- tick
+        v, err := pin.readPinValue()
         if err != nil {
-            fmt.Println(err)
-            return
+            panic(err)
         }
-        value, err := readPinValue(21)
-        if err != nil {
-            fmt.Println(err)
-            return
+        current_state := false
+        if v > 0 {
+            current_state = true
         }
-        fmt.Println("Wartość: ", value)
-        time.Sleep(time.Millisecond * 2000)
+        if state_unknown {
+            state_unknown = false
+            stable_state = current_state
+        } else if !(stable_state == current_state) {
+            deviated_from_stable_counter++
+            if deviated_from_stable_counter > minimal_stability {
+                deviated_from_stable_counter = 0
+                action(stable_state, current_state)
+                stable_state = current_state
+            }
+        }
+    }
+}
 
+type I2CTransmitter struct {
+    current_byte_sent uint
+    bit_number uint
+    scl_pin Pin
+    sda_pin Pin
+    waitinig_for_ack bool
+}
+
+func (transmitter I2CTransmitter) init(scl_pin Pin, sda_pin Pin) {
+    transmitter.bit_number = 0
+    transmitter.waitinig_for_ack = false
+    transmitter.scl_pin = scl_pin
+    transmitter.sda_pin = sda_pin
+}
+
+func (transmitter I2CTransmitter) clockTransitionAction(previous bool, current bool) {
+    if current == false && transmitter.waitinig_for_ack == false {
+        var current_bit uint
+        current_bit = transmitter.current_byte_sent & (1 << (7-transmitter.bit_number))
+        transmitter.bit_number++
+        err := transmitter.sda_pin.setPinValue(int(current_bit))
+        if err != nil {
+            panic(err)
+        }
+        if transmitter.bit_number == 8 {
+            transmitter.waitinig_for_ack = true
+            transmitter.bit_number = 0
+        }
+    }else if current == false && transmitter.waitinig_for_ack {
+        var current_bit uint
+        err := transmitter.sda_pin.setPinValue(int(current_bit))
+        if err != nil {
+            panic(err)
+        }
+        transmitter.waitinig_for_ack = false
     }
 }
 
 func main() {
-    emitClockSignal(21, 2000)
+    go emitClockSignal(21, 2000)
+    watchPin(Pin(21), 11, 3, func(prev bool, current bool){fmt.Println("Transition from ", prev, " to ", current)} )
 }
 
 
