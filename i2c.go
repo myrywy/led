@@ -36,3 +36,4 @@ func (transmitter *I2CTransmitter) clockTransitionAction(previous bool, current 
         transmitter.waiting_for_ack = false
     }
 }
+
